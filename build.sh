@@ -38,6 +38,20 @@ if ! docker image inspect "$IMAGE_NAME" > /dev/null 2>&1; then
     docker build -t "$IMAGE_NAME" "$PROJECT_DIR"
 fi
 
+# --- Anvend patches på GPL-kildekode ---
+
+for patch in "$PROJECT_DIR/patches/"*.patch; do
+    [ -f "$patch" ] || continue
+    patch_name=$(basename "$patch")
+    # Sjekk om patchen allerede er anvendt
+    if patch --dry-run -p1 -R -s --dir "$GPL_DIR" < "$patch" > /dev/null 2>&1; then
+        echo "    Patch allerede anvendt: $patch_name"
+    else
+        echo "    Anvender patch: $patch_name"
+        patch -p1 --dir "$GPL_DIR" < "$patch"
+    fi
+done
+
 # --- Kjør bygget ---
 
 echo ">>> Starter firmware-bygg..."
@@ -56,7 +70,7 @@ docker run --rm \
         /toolchain/${TOOLCHAIN_NAME}/bin/mips-linux-gcc --version
 
         echo '--- Starter bygg ---'
-        make 2>&1 | tee /build/GPL/build.log
+        make HOSTCFLAGS=-fcommon KCFLAGS='-Wno-array-bounds -Wno-stringop-overflow -Wno-stringop-overread' 2>&1 | tee /build/GPL/build.log
 
         echo '--- Ferdig ---'
         ls -lh /build/GPL/images/ 2>/dev/null || echo 'Ingen images/ mappe funnet'

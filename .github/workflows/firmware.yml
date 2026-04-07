@@ -72,6 +72,15 @@ jobs:
             exit 1
           fi
 
+      # Anvend patches på GPL-kildekode
+      - name: Anvend patches
+        run: |
+          for patch in patches/*.patch; do
+            [ -f "$patch" ] || continue
+            echo "Anvender: $patch"
+            patch -p1 --dir GPL < "$patch"
+          done
+
       # Bygg firmware-builder image
       - name: Bygg firmware-builder image
         uses: docker/build-push-action@v5
