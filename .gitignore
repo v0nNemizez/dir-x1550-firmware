@@ -1,0 +1,10 @@
+# GPL-kildekode (for stor for git, legg inn som submodule eller separat)
+GPL/
+
+# Bygg-output
+build.log
+*.bin
+*.img
+
+# macOS
+.DS_Store

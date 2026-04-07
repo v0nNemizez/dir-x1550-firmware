@@ -1,0 +1,124 @@
+name: Build Firmware
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/firmware.yml'
+  workflow_dispatch:
+    inputs:
+      gpl_ref:
+        description: 'GPL-kildekode branch/tag (brukes hvis GPL er i eget repo)'
+        required: false
+        default: 'main'
+
+env:
+  REGISTRY: ghcr.io
+  TOOLCHAIN_IMAGE: ${{ github.repository_owner }}/dir-x1550-toolchain
+
+jobs:
+  build-firmware:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Beregn hvilken toolchain-hash som gjelder nå
+      - name: Beregn toolchain-hash
+        id: hash
+        run: |
+          HASH=$(sha256sum ct-ng.defconfig uclibc.config Dockerfile.toolchain | sha256sum | cut -c1-12)
+          echo "value=$HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Logg inn på GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Hent toolchain-image fra ghcr.io
+      - name: Hent toolchain-image
+        run: |
+          HASH="${{ steps.hash.outputs.value }}"
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.TOOLCHAIN_IMAGE }}:${HASH}"
+
+          echo "Henter toolchain: $IMAGE_REF"
+          docker pull "$IMAGE_REF" || {
+            echo "FEIL: Toolchain-image ikke funnet."
+            echo "Kjør 'Build Toolchain'-workflowen først."
+            exit 1
+          }
+
+          # Pakk ut toolchain fra imaget til /tmp/toolchain
+          docker create --name tc-extract "$IMAGE_REF"
+          docker cp tc-extract:/toolchain /tmp/toolchain
+          docker rm tc-extract
+
+          echo "Toolchain klar:"
+          /tmp/toolchain/msdk-4.8.5-mips-EB-4.4-u0.9.33-m32ut-180206/bin/msdk-linux-gcc --version
+
+      # GPL-kildekode forventes som en submodule eller eget checkout
+      # Juster denne seksjonen etter hvordan ditt GPL-repo er satt opp
+      - name: Sjekk GPL-kildekode
+        run: |
+          if [ ! -f "GPL/Makefile" ]; then
+            echo "FEIL: GPL/Makefile ikke funnet."
+            echo "Legg GPL-kildekoden i en 'GPL/' submappe eller som git submodule."
+            exit 1
+          fi
+
+      # Bygg firmware-builder image
+      - name: Bygg firmware-builder image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          load: true
+          tags: dir-x1550-builder:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Bygg firmware
+      - name: Bygg firmware
+        run: |
+          docker run --rm \
+            -v "$PWD/GPL":/build/GPL \
+            -v /tmp/toolchain:/toolchain:ro \
+            -w /build/GPL \
+            dir-x1550-builder \
+            bash -c "
+              echo '--- Toolchain ---'
+              /toolchain/msdk-4.8.5-mips-EB-4.4-u0.9.33-m32ut-180206/bin/msdk-linux-gcc --version
+
+              echo '--- Bygger ---'
+              make HOSTCFLAGS=-fcommon 2>&1 | tee /build/GPL/build.log
+
+              echo '--- Ferdig ---'
+              ls -lh /build/GPL/images/
+            "
+
+      # Last opp firmware som artifact
+      - name: Last opp firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ github.sha }}
+          path: |
+            GPL/images/*.bin
+            GPL/images/*.img
+          retention-days: 30
+
+      - name: Oppsummering
+        run: |
+          echo "## Firmware bygget" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Commit:** \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Filer:**" >> "$GITHUB_STEP_SUMMARY"
+          ls GPL/images/ 2>/dev/null | while read f; do
+            SIZE=$(du -h "GPL/images/$f" | cut -f1)
+            echo "- \`$f\` ($SIZE)" >> "$GITHUB_STEP_SUMMARY"
+          done

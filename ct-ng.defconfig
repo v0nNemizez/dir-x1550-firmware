@@ -1,0 +1,38 @@
+CT_CONFIG_VERSION="4"
+
+# Arkitektur: MIPS32 Big Endian rel2, hard float
+CT_ARCH_MIPS=y
+CT_ARCH_ARCH="mips32r2"
+CT_ARCH_BE=y
+CT_ARCH_FLOAT_HW=y
+CT_ARCH_BITNESS=32
+
+# Alias – gjør at binærene heter msdk-linux-gcc osv. (som build-systemet forventer)
+CT_TARGET_VENDOR="unknown"
+CT_TARGET_ALIAS="msdk-linux"
+
+# Kernel: Linux 4.4.x headers
+CT_KERNEL_LINUX=y
+CT_KERNEL_LINUX_VERSION="4.4.302"
+
+# Binutils
+CT_BINUTILS_VERSION="2.40"
+
+# GCC
+CT_GCC_VERSION="12.3.0"
+CT_CC_LANG_CXX=y
+
+# C-bibliotek: uClibc-ng (ABI-kompatibel med uClibc 0.9.33)
+CT_LIBC_UCLIBC_NG=y
+CT_LIBC_UCLIBC_NG_VERSION="1.0.48"
+CT_THREADS="nptl"
+
+# Installasjon
+CT_PREFIX_DIR="/toolchain/msdk-4.8.5-mips-EB-4.4-u0.9.33-m32ut-180206"
+CT_REMOVE_DOCS=y
+
+# Byggeinnstillinger
+CT_PARALLEL_JOBS=0
+CT_LOG_LEVEL_MAX="WARN"
+CT_LOG_PROGRESS_BAR=n
+CT_SAVE_TARBALLS=n

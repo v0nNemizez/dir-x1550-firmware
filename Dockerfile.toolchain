@@ -1,0 +1,85 @@
+# Bygger MIPS Big Endian uClibc toolchain med crosstool-ng
+# Tilsvarende: msdk-4.8.5-mips-EB-4.4-u0.9.33-m32ut-180206
+#
+# Bruk Ubuntu 18.04 – GCC 4.8.5 kompilerer ikke stabilt på nyere systemer
+# Tving x86_64 – crosstool-ng og GCC 4.8.5 er testet på amd64
+# (Mac M-serie bruker ellers arm64 som standard)
+FROM --platform=linux/amd64 ubuntu:18.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Installer alle avhengigheter crosstool-ng trenger
+RUN apt-get update && apt-get install -y \
+    # Byggverktøy
+    gcc \
+    g++ \
+    make \
+    cmake \
+    automake \
+    autoconf \
+    libtool \
+    libtool-bin \
+    # Verktøy crosstool-ng krever
+    bison \
+    flex \
+    gperf \
+    texinfo \
+    help2man \
+    # Biblioteker
+    libncurses5-dev \
+    libssl-dev \
+    # Nedlasting og pakking
+    wget \
+    curl \
+    git \
+    xz-utils \
+    bzip2 \
+    unzip \
+    # Diverse
+    python3 \
+    python3-pip \
+    gawk \
+    file \
+    patch \
+    rsync \
+    && rm -rf /var/lib/apt/lists/*
+
+# Bygg GNU make 4.4 fra kildekode (Ubuntu 18.04 leverer kun 4.1)
+WORKDIR /tmp
+RUN wget -q https://ftp.gnu.org/gnu/make/make-4.4.tar.gz \
+    && tar xzf make-4.4.tar.gz \
+    && cd make-4.4 \
+    && ./configure --prefix=/usr/local \
+    && make -j$(nproc) \
+    && make install \
+    && cd / \
+    && rm -rf /tmp/make-4.4* \
+    && /usr/local/bin/make --version | head -1
+
+# Last ned og bygg crosstool-ng 1.26.0 fra GitHub releases
+ARG CTNG_VERSION=1.26.0
+WORKDIR /tmp
+
+RUN wget -q https://github.com/crosstool-ng/crosstool-ng/releases/download/crosstool-ng-${CTNG_VERSION}/crosstool-ng-${CTNG_VERSION}.tar.bz2 \
+    && tar xjf crosstool-ng-${CTNG_VERSION}.tar.bz2 \
+    && cd crosstool-ng-${CTNG_VERSION} \
+    && ./configure --prefix=/usr/local \
+    && make -j$(nproc) \
+    && make install \
+    && cd / \
+    && rm -rf /tmp/crosstool-ng-*
+
+# Opprett bruker (crosstool-ng vil ikke kjøre som root)
+RUN useradd -m -s /bin/bash builder
+USER builder
+WORKDIR /home/builder
+
+# Kopier konfigurasjonsfiler
+COPY --chown=builder:builder ct-ng.defconfig /home/builder/ct-ng.defconfig
+COPY --chown=builder:builder uclibc.config /home/builder/uclibc.config
+
+# Bygg toolchain
+# Output havner i /toolchain/ (montert fra Mac)
+CMD ct-ng defconfig DEFCONFIG=/home/builder/ct-ng.defconfig && \
+    ct-ng build && \
+    echo "Toolchain bygget OK"
