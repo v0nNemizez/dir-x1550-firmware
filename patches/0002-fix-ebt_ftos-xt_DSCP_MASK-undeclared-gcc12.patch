@@ -1,7 +1,13 @@
 --- a/linux-4.4.x/net/bridge/netfilter/ebt_ftos.c
 +++ b/linux-4.4.x/net/bridge/netfilter/ebt_ftos.c
-@@ -17,6 +17,7 @@
+@@ -17,10 +17,8 @@
  #include <linux/netfilter/x_tables.h>
-+#include <linux/netfilter/xt_DSCP.h>
+-#include <linux/netfilter/xt_DSCP.h>
++#include <linux/netfilter/xt_dscprange.h>
  #include <linux/netfilter_bridge/ebtables.h>
  #include <linux/netfilter_bridge/ebt_ftos_t.h>
+
+ #include <linux/ipv6.h>
+ #include <net/dsfield.h>
+-
+-#include <linux/netfilter/xt_DSCP.h>
