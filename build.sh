@@ -80,6 +80,10 @@ for patch in "$PROJECT_DIR/patches/"*.patch; do
         echo "    Anvender patch: $patch_name"
         patch -p1 --dir "$GPL_DIR" < "$patch"
     fi
+    # Touch patchede filer så Make ser dem som nyere enn .o-filer
+    grep "^+++ " "$patch" | sed 's|^+++ b/||' | while read -r f; do
+        [ -f "$GPL_DIR/$f" ] && touch "$GPL_DIR/$f"
+    done
 done
 
 # --- Kjør bygget ---
