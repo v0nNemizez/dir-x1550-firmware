@@ -1,6 +1,6 @@
 #!/bin/bash
-# Bygger DIR-X1550 firmware i Docker
-# Kjøres fra Mac-terminalen
+# Bygger DIR-X1550 firmware lokalt
+# Toolchain hentes fra lokalt Docker volume, eller fra ghcr.io hvis volume mangler.
 
 set -e
 
@@ -9,6 +9,7 @@ VOLUME_NAME="dir-x1550-toolchain"
 TOOLCHAIN_NAME="msdk-4.8.5-mips-EB-4.4-u0.9.33-m32ut-180206"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 IMAGE_NAME="dir-x1550-builder"
+GHCR_IMAGE="ghcr.io/v0nnemizez/dir-x1550-toolchain"
 
 # --- Sjekker ---
 
@@ -17,24 +18,54 @@ if [ ! -d "$GPL_DIR" ]; then
     exit 1
 fi
 
-if ! docker volume inspect "$VOLUME_NAME" > /dev/null 2>&1; then
-    echo "FEIL: Docker volume '$VOLUME_NAME' ikke funnet."
-    echo "Kjør ./build-toolchain.sh først."
-    exit 1
-fi
+# --- Sørg for at toolchain-volumet finnes ---
 
-if ! docker run --rm \
+TOOLCHAIN_BIN="/toolchain/${TOOLCHAIN_NAME}/bin/msdk-linux-gcc"
+
+if docker run --rm \
     --mount type=volume,source=${VOLUME_NAME},target=/toolchain \
-    alpine test -f "/toolchain/${TOOLCHAIN_NAME}/bin/mips-linux-gcc" 2>/dev/null; then
-    echo "FEIL: Toolchain ikke ferdig bygget i volume '$VOLUME_NAME'."
-    echo "Kjør ./build-toolchain.sh først."
-    exit 1
+    dir-x1550-toolchain-builder \
+    test -f "$TOOLCHAIN_BIN" 2>/dev/null; then
+    echo ">>> Toolchain funnet i lokalt volume."
+else
+    echo ">>> Lokalt toolchain-volume mangler. Henter fra ghcr.io..."
+
+    # Finn riktig hash basert på gjeldende konfig
+    HASH=$(sha256sum \
+        "$PROJECT_DIR/ct-ng.defconfig" \
+        "$PROJECT_DIR/uclibc.config" \
+        "$PROJECT_DIR/Dockerfile.toolchain" | sha256sum | cut -c1-12)
+
+    IMAGE_REF="${GHCR_IMAGE}:${HASH}"
+    echo "    Image: $IMAGE_REF"
+
+    docker pull "$IMAGE_REF" || {
+        echo ""
+        echo "FEIL: Fant ikke toolchain-image på ghcr.io."
+        echo "Alternativ 1: Kjør ./build-toolchain.sh for å bygge lokalt (~60 min)"
+        echo "Alternativ 2: Kjør 'Build Toolchain' på GitHub Actions, vent til ferdig"
+        exit 1
+    }
+
+    # Pakk ut toolchain fra imaget til volumet
+    docker volume create "$VOLUME_NAME" > /dev/null
+    docker create --name tc-extract "$IMAGE_REF" 2>/dev/null || true
+    docker cp tc-extract:/toolchain/. /tmp/tc-extract-tmp/
+    # Kopier inn i volumet via builder-imaget
+    docker run --rm \
+        -v /tmp/tc-extract-tmp:/src \
+        --mount type=volume,source=${VOLUME_NAME},target=/toolchain \
+        dir-x1550-toolchain-builder \
+        cp -a /src/. /toolchain/
+    docker rm tc-extract
+    rm -rf /tmp/tc-extract-tmp
+    echo ">>> Toolchain hentet og klar."
 fi
 
 # --- Bygg Docker-image om det ikke finnes ---
 
 if ! docker image inspect "$IMAGE_NAME" > /dev/null 2>&1; then
-    echo ">>> Bygger Docker-image..."
+    echo ">>> Bygger firmware-builder image..."
     docker build -t "$IMAGE_NAME" "$PROJECT_DIR"
 fi
 
@@ -43,7 +74,6 @@ fi
 for patch in "$PROJECT_DIR/patches/"*.patch; do
     [ -f "$patch" ] || continue
     patch_name=$(basename "$patch")
-    # Sjekk om patchen allerede er anvendt
     if patch --dry-run -p1 -R -s --dir "$GPL_DIR" < "$patch" > /dev/null 2>&1; then
         echo "    Patch allerede anvendt: $patch_name"
     else
@@ -54,8 +84,9 @@ done
 
 # --- Kjør bygget ---
 
+echo ""
 echo ">>> Starter firmware-bygg..."
-echo "    GPL:       $GPL_DIR"
+echo "    GPL:      $GPL_DIR"
 echo "    Toolchain: volume:$VOLUME_NAME"
 echo "    Output:    $GPL_DIR/images/"
 echo ""
@@ -67,7 +98,7 @@ docker run --rm \
     "$IMAGE_NAME" \
     bash -c "
         echo '--- Verifiserer toolchain ---'
-        /toolchain/${TOOLCHAIN_NAME}/bin/mips-linux-gcc --version
+        /toolchain/${TOOLCHAIN_NAME}/bin/msdk-linux-gcc --version
 
         echo '--- Starter bygg ---'
         make HOSTCFLAGS=-fcommon KCFLAGS='-Wno-array-bounds -Wno-stringop-overflow -Wno-stringop-overread' 2>&1 | tee /build/GPL/build.log
