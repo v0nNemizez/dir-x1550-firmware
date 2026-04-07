@@ -101,7 +101,7 @@ docker run --rm \
         /toolchain/${TOOLCHAIN_NAME}/bin/msdk-linux-gcc --version
 
         echo '--- Starter bygg ---'
-        make HOSTCFLAGS=-fcommon KCFLAGS='-Wno-array-bounds -Wno-stringop-overflow -Wno-stringop-overread' 2>&1 | tee /build/GPL/build.log
+        make HOSTCFLAGS=-fcommon KCFLAGS='-Wno-array-bounds -Wno-stringop-overflow -Wno-stringop-overread -Wno-missing-attributes' 2>&1 | tee /build/GPL/build.log
 
         echo '--- Ferdig ---'
         ls -lh /build/GPL/images/ 2>/dev/null || echo 'Ingen images/ mappe funnet'
