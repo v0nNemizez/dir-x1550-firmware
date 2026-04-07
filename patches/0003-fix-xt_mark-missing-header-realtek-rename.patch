@@ -1,0 +1,20 @@
+--- /dev/null
++++ b/linux-4.4.x/include/linux/netfilter/xt_mark.h
+@@ -0,0 +1,17 @@
++/* Auto-generated compat header for Realtek GPL fork
++ * Maps standard xt_mark structs to Realtek's renamed xt_mark2 structs */
++#ifndef _LINUX_XT_MARK_H
++#define _LINUX_XT_MARK_H
++
++#include <linux/types.h>
++
++struct xt_mark_tginfo2 {
++	__u32 mark, mask;
++};
++
++struct xt_mark_mtinfo1 {
++	__u32 mark, mask;
++	__u8 invert;
++};
++
++#endif
