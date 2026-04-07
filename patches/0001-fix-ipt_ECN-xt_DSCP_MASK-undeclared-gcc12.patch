@@ -1,7 +1,8 @@
 --- a/linux-4.4.x/net/ipv4/netfilter/ipt_ECN.c
 +++ b/linux-4.4.x/net/ipv4/netfilter/ipt_ECN.c
-@@ -18,6 +18,7 @@
+@@ -18,6 +18,6 @@
  #include <linux/netfilter/x_tables.h>
-+#include <linux/netfilter/xt_DSCP.h>
+-#include <linux/netfilter/xt_DSCP.h>
++#include <linux/netfilter/xt_dscprange.h>
  #include <linux/netfilter_ipv4/ip_tables.h>
  #include <linux/netfilter_ipv4/ipt_ECN.h>

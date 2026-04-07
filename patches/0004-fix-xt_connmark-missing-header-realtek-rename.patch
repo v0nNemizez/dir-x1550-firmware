@@ -1,0 +1,26 @@
+--- /dev/null
++++ b/linux-4.4.x/include/linux/netfilter/xt_connmark.h
+@@ -0,0 +1,22 @@
++/* Compat header for Realtek GPL fork - maps xt_connmark to xt_connmark2 */
++#ifndef _LINUX_XT_CONNMARK_H
++#define _LINUX_XT_CONNMARK_H
++
++#include <linux/types.h>
++
++enum {
++	XT_CONNMARK_SET = 0,
++	XT_CONNMARK_SAVE,
++	XT_CONNMARK_RESTORE
++};
++
++struct xt_connmark_tginfo1 {
++	__u32 ctmark, ctmask, nfmask;
++	__u8 mode;
++};
++
++struct xt_connmark_mtinfo1 {
++	__u32 mark, mask;
++	__u8 invert;
++};
++
++#endif
