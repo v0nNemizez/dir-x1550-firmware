@@ -1,0 +1,39 @@
+--- a/linux-4.4.x/net/netfilter/xt_DSCP.c
++++ b/linux-4.4.x/net/netfilter/xt_DSCP.c
+@@ -19,6 +19,7 @@
+ #include <linux/netfilter/x_tables.h>
++#include <linux/netfilter/xt_dscprange.h>
+ #include <linux/netfilter/xt_DSCP.h>
+
+--- a/linux-4.4.x/include/uapi/linux/netfilter/xt_ecn.h
++++ b/linux-4.4.x/include/uapi/linux/netfilter/xt_ecn.h
+@@ -12,6 +12,7 @@
+ #include <linux/types.h>
+ #include <linux/netfilter/xt_dscp.h>
++#include <linux/netfilter/xt_dscprange.h>
+
+--- /dev/null
++++ b/linux-4.4.x/include/linux/netfilter_ipv4/ipt_ttl.h
+@@ -0,0 +1,21 @@
++/* Compat header for Realtek GPL fork */
++#ifndef _LINUX_IPT_TTL_H
++#define _LINUX_IPT_TTL_H
++
++#include <linux/types.h>
++
++enum {
++	IPT_TTL_EQ = 0,
++	IPT_TTL_NE,
++	IPT_TTL_LT,
++	IPT_TTL_GT,
++	IPT_TTL_SET,
++	IPT_TTL_INC,
++	IPT_TTL_DEC
++};
++
++struct ipt_ttl_info {
++	__u8 mode;
++	__u8 ttl;
++};
++
++#endif
